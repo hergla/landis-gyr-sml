@@ -18,6 +18,7 @@ import argparse
 import sys
 import datetime
 from smllib  import SmlStreamReader
+from smllib.const import OBIS_NAMES, UNITS
 from hexdump import hexdump
 
 verbose = 0 
@@ -102,26 +103,25 @@ def dosml(data):
     parsed_msgs = sml_frame.parse_frame()
     for msg in parsed_msgs:
         # prints a nice overview over the received values
-        print(msg.format_msg())
+        #print(msg.format_msg())
         pass
 
 # In the parsed message the obis values are typically found like this
     obis_values = parsed_msgs[1].message_body.val_list
 
 # The obis attribute of the SmlListEntry carries different obis representations as attributes
-    obisshorts = { '1.8.0' : 'Zählerstand Bezug Total',
-                   '2.8.0' : 'Zählerstand Einspeisung Total',
-                   '16.7.0' : 'Aktuelle Wirkleistung' }
     for  list_entry in obis_values:
-        if list_entry.obis.obis_short in obisshorts:
-            print(f'{obisshorts[list_entry.obis.obis_short]}')
+        if list_entry.obis in OBIS_NAMES:
+            print(f'{OBIS_NAMES[list_entry.obis]} ', end ='')
+            value = str(round(list_entry.value * ( 10 ** list_entry.scaler),1))
+            print(f'value: {value} {UNITS[list_entry.unit]}')
 
-        print(list_entry.obis)            # 0100010800ff
-        print(list_entry.obis.obis_code)  # 1-0:1.8.0*255
-        print(list_entry.obis.obis_short) # 1.8.0
-        print(list_entry.value)
-        print(list_entry.scaler)          # Wert = value * 10 ** scaler
-        print(list_entry.unit)            # DLMS-Unit-List, zu finden beispielsweise in IEC 62056-62.
+        #print(list_entry.obis)            # 0100010800ff
+        #print(list_entry.obis.obis_code)  # 1-0:1.8.0*255
+        #print(list_entry.obis.obis_short) # 1.8.0
+        #print(list_entry.value)
+        #print(list_entry.scaler)          # Wert = value * 10 ** scaler
+        #print(list_entry.unit)            # DLMS-Unit-List, zu finden beispielsweise in IEC 62056-62.
 
 ################################ MAIN #################################
 def main():
@@ -138,12 +138,13 @@ def main():
 
     ser = open_serial(args.device)
     if ser:
-        smlframe = read_sml(ser)        
-        if smlframe:      
-            dump("SMLTransportMessage", smlframe, verbose >=1)
-            dosml(smlframe)
-        else:
-            error = "ERR_MESG"
+        while True:
+            smlframe = read_sml(ser)        
+            if smlframe:      
+                dump("SMLTransportMessage", smlframe, verbose >=1)
+                dosml(smlframe)
+            else:
+                error = "ERR_MESG"
     else:
         error = "ERR_DEVICE"
 
