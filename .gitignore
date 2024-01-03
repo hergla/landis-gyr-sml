@@ -2,3 +2,6 @@
 __pycache__
 influx.ini
 nohup.out
+x.*
+y.*
+z.*

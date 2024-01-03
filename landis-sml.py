@@ -24,9 +24,17 @@ from smllib  import SmlStreamReader
 from smllib.const import OBIS_NAMES, UNITS
 from hexdump import hexdump
 from threading import Thread
+import influxdb_client, os, time
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
+import pytz
+
 
 verbose = 0 
 GRAPHITEHOST = 'oel.localdomain'
+INFLUX_INI = 'influx.ini'
+INFLUX_BUCKET = 'Energie'
+TZ =  pytz.timezone('Europe/Berlin')
 
 OBIS_MAP_GRAPHITE = { '0100010800ff' : 'Verbrauch.total',
                       '0100020800ff' : 'Einspeisung.total',
@@ -154,6 +162,44 @@ class SendGraphite(Thread):
             return False
         return True
 
+class SendInflux(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.bucket = INFLUX_BUCKET
+        self.redis_con = redis.Redis(host='localhost')
+        self.client = influxdb_client.InfluxDBClient.from_config_file('influx.ini')
+        self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
+
+    def run(self):
+        while True:
+            stromwert = self.redis_con.rpop('stromwertinfluxdb')
+            if not stromwert:
+                time.sleep(1)
+            else:
+                stromwert = stromwert.decode()
+                (metric, value, timestamp) = stromwert.split()
+                (messurement, tagval, field) = metric.split('.')
+
+                ts = datetime.fromtimestamp(float(timestamp)).astimezone(TZ).isoformat()
+                # print(ts, messurement, tagval, field, value)
+                point = (
+                         Point(messurement)
+                         .tag('Wert', tagval)
+                         .field(field, float(value))
+                         .time(ts)
+                         )
+                if not self.sendinflux(point):
+                    self.redis_con.rpush('stromwertinfluxdb', stromwert)
+                    time.sleep(2)
+
+    def sendinflux(self, point):
+        try:
+            #print(f'point: {point}')
+            self.write_api.write(bucket=self.bucket, record=point)
+        except Exception as e:
+            print(e)
+            return False
+        return True
 
 ################################ MAIN #################################
 def main():
@@ -170,6 +216,8 @@ def main():
 
     sendgraphite = SendGraphite()
     sendgraphite.start()
+    sendinflux = SendInflux()
+    sendinflux.start()
 
     fdser = open_serial(args.device)
     if fdser:
@@ -181,6 +229,7 @@ def main():
                 for graphite_frame in dosml(smlframe):
                     #print(f'lpush redis: {graphite_frame}')
                     redis_con.lpush('stromwert', graphite_frame)
+                    redis_con.lpush('stromwertinfluxdb', graphite_frame)
             else:
                 error = "ERR_MESG"
     else:
