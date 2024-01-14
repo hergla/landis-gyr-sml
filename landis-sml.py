@@ -163,11 +163,11 @@ class SendGraphite(Thread):
         return True
 
 class SendInflux(Thread):
-    def __init__(self):
+    def __init__(self, inifile):
         Thread.__init__(self)
         self.bucket = INFLUX_BUCKET
         self.redis_con = redis.Redis(host='localhost')
-        self.client = influxdb_client.InfluxDBClient.from_config_file('influx.ini')
+        self.client = influxdb_client.InfluxDBClient.from_config_file(inifile)
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
 
     def run(self):
@@ -208,6 +208,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Read Landis+Gyr E320 electric power meter')
     parser.add_argument('-d', '--device', '--port', required=True, help='name of serial port device, e.g. /dev/ttyUSB0')
+    parser.add_argument('-i', '--inifile', required=True, help='Influx Configfile.')
     parser.add_argument('-v', '--verbose', action='count', help='verbosity level')
     args = parser.parse_args()
 
@@ -216,7 +217,7 @@ def main():
 
     sendgraphite = SendGraphite()
     sendgraphite.start()
-    sendinflux = SendInflux()
+    sendinflux = SendInflux(inifile=args.inifile)
     sendinflux.start()
 
     fdser = open_serial(args.device)
