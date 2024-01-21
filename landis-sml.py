@@ -1,15 +1,19 @@
 #!/usr/bin/python3
 
-"""Read and decode the SML output of the Landis+Gyr ED320 electric power meter.
-Extract the current power consumption and the total energy consumption.
+"""
+Landis+Gyr Stromzaehler auslesen und an Influx und/oder Graphite 
+senden. 
+Der Graphite Part ist auskommentiert (siehe Main)
 
-## SML Protocol References
+Die gelesenen Werte werden zunaechst in einen lokalen Redis abgelegt.
+Die Weiterletung an Influx erfolgt in einem seperaten Thread.
 
-* [Technische Richtlinie BSI TR-03109-1](https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Publikationen/TechnischeRichtlinien/TR03109/TR-03109-1_Anlage_Feinspezifikation_Drahtgebundene_LMN-Schnittstelle_Teilb.pdf?__blob=publicationFile) - the main specification
-* [DLMS blue book](https://www.dlms.com/files/Blue-Book-Ed-122-Excerpt.pdf) - contains OBIS codes and measurement units
-* [EDI@Energy Codeliste der OBIS-Kennzahlen fuer den deutschen Energiemarkt](https://www.edi-energy.de/index.php?id=38&tx_bdew_bdew%5Buid%5D=64&tx_bdew_bdew%5Baction%5D=download&tx_bdew_bdew%5Bcontroller%5D=Dokument&cHash=d2cc24364c4712ad83676043d5cc02f5)
-* [Beschreibung SML Datenprotokoll fuer SMART METER](http://itrona.ch/stuff/F2-2_PJM_5_Beschreibung%20SML%20Datenprotokoll%20V1.0_28.02.2011.pdf)
-
+Der Landis Gyr Stromzaehler liefert im default nur die Werte
+fuer die Zaehlerstaende (Bezug und Einspeisung.)
+Der Werte fuer den aktuellen Verbrauch wird erst geliefert, wenn der Zaehler
+entsprechend eingestellt ist. 
+Fuer die Freigabe ist evtl. eine PIN erfoderlich. Diese bekommst du 
+von deinem Versorger/Netzbetreiber.
 
 """
 
@@ -162,6 +166,7 @@ class SendGraphite(Thread):
             return False
         return True
 
+
 class SendInflux(Thread):
     def __init__(self, inifile):
         Thread.__init__(self)
@@ -215,8 +220,8 @@ def main():
     if args.verbose:
         verbose = args.verbose
 
-    sendgraphite = SendGraphite()
-    sendgraphite.start()
+    #sendgraphite = SendGraphite()
+    #sendgraphite.start()
     sendinflux = SendInflux(inifile=args.inifile)
     sendinflux.start()
 
@@ -229,7 +234,7 @@ def main():
                 dump("SMLTransportMessage", smlframe, verbose >=1)
                 for graphite_frame in dosml(smlframe):
                     #print(f'lpush redis: {graphite_frame}')
-                    redis_con.lpush('stromwert', graphite_frame)
+                    #redis_con.lpush('stromwert', graphite_frame)
                     redis_con.lpush('stromwertinfluxdb', graphite_frame)
             else:
                 error = "ERR_MESG"
