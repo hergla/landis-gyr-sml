@@ -129,7 +129,8 @@ def dosml(data):
             #print(f'value: {value} {UNITS[list_entry.unit]}')
             if list_entry.obis in OBIS_MAP_GRAPHITE:
                 graphite_frame = f'Strom.{OBIS_MAP_GRAPHITE[list_entry.obis]} {value} {ts}'
-                #print (f'graphite_frame: {graphite_frame}')
+           #     print (f'graphite_frame: {graphite_frame}')
+           #     print("=" * 80)
                 yield graphite_frame
 
         #print(list_entry.obis)            # 0100010800ff
