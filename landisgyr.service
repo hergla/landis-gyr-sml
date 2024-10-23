@@ -1,0 +1,16 @@
+[Unit]
+Description=Landis Gyr auslesen
+Documentation=https://github.com/hergla/landis-gyr-sml
+After=redis-server.service
+
+[Service]
+Restart=on-failure
+User=root
+EnvironmentFile=/etc/default/landisgyr
+ExecStart=/root/landis-gyr-sml/landis-sml.py $ARGS
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=20s
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target
