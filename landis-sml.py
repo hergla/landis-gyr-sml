@@ -23,7 +23,6 @@ import sys
 import time
 from datetime import datetime
 import redis
-import graphyte
 from smllib  import SmlStreamReader
 from smllib.const import OBIS_NAMES, UNITS
 from hexdump import hexdump
@@ -140,33 +139,6 @@ def dosml(data):
         #print(list_entry.scaler)          # Wert = value * 10 ** scaler
         #print(list_entry.unit)            # DLMS-Unit-List, zu finden beispielsweise in IEC 62056-62.
 
-class SendGraphite(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-        self.redis_con = redis.Redis(host='localhost')
-        self.graphite_con = graphyte.Sender(GRAPHITEHOST, raise_send_errors=True)
-
-    def run(self):
-        while True:
-            stromwert = self.redis_con.rpop('stromwert')
-            if not stromwert:
-                time.sleep(1.0)
-            else:
-                stromwert = stromwert.decode()
-                #print(f'send graphite: {stromwert}')
-                if not self.sendgraphite(stromwert):
-                    self.redis_con.rpush('stromwert', stromwert)
-                    time.sleep(2)
-
-    def sendgraphite(self, stromwert):
-        (metric, value, timestamp) = stromwert.split()
-        try:
-            self.graphite_con.send(metric, float(value), float(timestamp))
-        except Exception as e:
-            print(e)
-            return False
-        return True
-
 
 class SendInflux(Thread):
     def __init__(self, inifile):
@@ -221,8 +193,6 @@ def main():
     if args.verbose:
         verbose = args.verbose
 
-    #sendgraphite = SendGraphite()
-    #sendgraphite.start()
     sendinflux = SendInflux(inifile=args.inifile)
     sendinflux.start()
 
